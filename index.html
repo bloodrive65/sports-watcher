@@ -13,7 +13,18 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="styles.v4.css">
+<link rel="stylesheet" href="styles.v5.css">
+<script>
+  // Embedded on another site (e.g. Wix)? Go transparent so the host page shows through.
+  // Optional: ?bg=1e1e22 forces a solid background color instead.
+  (function () {
+    var q = new URLSearchParams(location.search), d = document.documentElement;
+    var framed = false; try { framed = window.self !== window.top; } catch (e) { framed = true; }
+    if (framed || q.has("embed")) d.classList.add("embed");
+    var bg = q.get("bg"); if (bg && /^[0-9a-f]{3,8}$/i.test(bg)) d.style.setProperty("--page-bg", "#" + bg);
+    if (q.get("header") === "0") d.classList.add("no-header");
+  })();
+</script>
 </head>
 <body>
 <header class="top">

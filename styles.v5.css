@@ -124,3 +124,11 @@ select{max-width:150px}
   .logo{width:28px;height:28px}
 }
 .logo{flex-shrink:0}
+
+/* ---------- Embedded mode (inside Wix etc.) ---------- */
+html.embed{color-scheme:normal}               /* matching the host's scheme keeps the iframe transparent */
+html.embed,html.embed body{background:var(--page-bg,transparent)}
+html.embed body{padding-top:8px;padding-bottom:8px}
+html.embed select,html.embed #refresh{background:rgba(255,255,255,.06);color:var(--text)}
+html.embed select option{background:#1a120e;color:#f5f1ee}
+html.no-header .top{display:none}
