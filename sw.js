@@ -1,7 +1,7 @@
 // Caches the app shell so it opens instantly from the home screen.
 // Scores always come from the network.
-const CACHE = "nfl-scores-v8";
-const SHELL = ["./", "index.html", "styles.v8.css", "app.v3.js", "manifest.webmanifest", "icon-192.png", "icon-180.png"];
+const CACHE = "nfl-scores-v9";
+const SHELL = ["./", "index.html", "styles.v9.css", "app.v3.js", "manifest.webmanifest", "icon-192.png", "icon-180.png"];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener("activate", (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))));
