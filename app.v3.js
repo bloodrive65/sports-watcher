@@ -4,7 +4,7 @@
   const API = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard";
   const LIVE_MS = 15000, IDLE_MS = 60000;
   const $ = (s) => document.querySelector(s);
-  const gamesEl = $("#games"), favEl = $("#fav");
+  const gamesEl = $("#games"), pickEl = $("#pick");
 
   // Safe storage (falls back to memory if storage is blocked, e.g. in embeds)
   const store = (() => {
@@ -13,8 +13,10 @@
     catch { return { getItem: (k) => mem[k] ?? null, setItem: (k, v) => (mem[k] = String(v)) }; }
   })();
 
-  let fav = store.getItem("nfl-fav") || "";
-  let filter = "all";
+  // Remember a manually chosen game (cleared automatically once it drops off the schedule)
+  let current = store.getItem("nfl-game") || "";
+  let manual = !!current;
+  const fav = "";
   let data = null, timer = null;
 
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -102,39 +104,46 @@
     </article>`;
   }
 
+  // ---------- Single-game view ----------
+  const ORDER = { in: 0, pre: 1, post: 2 };
+  function sorted() {
+    return data.events.map(parse).sort((a, b) =>
+      ORDER[a.state] - ORDER[b.state] || (a.state === "post" ? b.date - a.date : a.date - b.date));
+  }
+  // Default game: first live game, else next kickoff, else most recent final
+  function pickDefault(games) { return games[0]?.id || ""; }
+
+  function label(g) {
+    const m = `${g.away.abbr} @ ${g.home.abbr}`;
+    if (g.state === "in") return `● ${m} · ${g.away.score}-${g.home.score} · ${g.halftime ? "Half" : `${ordinal(g.period)} ${g.clock}`}`;
+    if (g.state === "post") return `${m} · Final ${g.away.score}-${g.home.score}`;
+    return `${m} · ${g.date.toLocaleDateString([], { weekday: "short" })} ${g.date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  }
+
+  function fillPicker(games) {
+    const groups = [["in", "Live now"], ["pre", "Upcoming"], ["post", "Final"]];
+    pickEl.innerHTML = groups.map(([st, name]) => {
+      const gs = games.filter((g) => g.state === st);
+      return gs.length ? `<optgroup label="${name}">${gs.map((g) => `<option value="${g.id}">${esc(label(g))}</option>`).join("")}</optgroup>` : "";
+    }).join("");
+    pickEl.value = current;
+  }
+
   function render() {
     if (!data) return;
-    const order = { in: 0, pre: 1, post: 2 };
-    let games = data.events.map(parse);
-    const counts = { all: games.length, in: 0, pre: 0, post: 0 };
-    games.forEach((g) => counts[g.state]++);
-    document.querySelectorAll(".tab").forEach((b) => {
-      const f = b.dataset.filter;
-      b.innerHTML = `${b.textContent.replace(/\d+$/, "").trim()}<span class="n">${counts[f]}</span>`;
-    });
-    if (filter !== "all") games = games.filter((g) => g.state === filter);
-    games.sort((a, b) => {
-      const fa = fav && (a.home.id === fav || a.away.id === fav) ? 0 : 1;
-      const fb = fav && (b.home.id === fav || b.away.id === fav) ? 0 : 1;
-      return fa - fb || order[a.state] - order[b.state] || a.date - b.date;
-    });
-    gamesEl.innerHTML = games.length
-      ? games.map(card).join("")
-      : `<div class="empty">No ${filter === "in" ? "live" : filter === "pre" ? "upcoming" : "final"} games right now.</div>`;
+    const games = sorted();
+    if (!games.some((g) => g.id === current)) { current = pickDefault(games); manual = false; }
+    if (!manual) current = pickDefault(games);
+    fillPicker(games);
+    const g = games.find((x) => x.id === current);
+    gamesEl.innerHTML = g ? card(g) : `<div class="empty">No games on the schedule right now.</div>`;
+
+    const others = games.filter((x) => x.state === "in" && x.id !== current).length;
+    $("#others").textContent = others ? `${others} other game${others > 1 ? "s" : ""} live, use the menu to switch` : "";
 
     const w = data.week?.number, season = data.season?.year;
     const typ = data.season?.type === 3 ? "Playoffs" : data.season?.type === 1 ? "Preseason" : "Week";
     $("#week").textContent = w ? `${season} · ${typ} ${w}` : "NFL";
-    const bye = (data.week?.teamsOnBye || []).map((t) => t.abbreviation);
-    if (bye.length) $("#week").textContent += ` · Bye: ${bye.join(", ")}`;
-  }
-
-  function fillTeams() {
-    const teams = new Map();
-    data.events.forEach((e) => e.competitions[0].competitors.forEach((c) => teams.set(c.team.id, c.team.displayName)));
-    (data.week?.teamsOnBye || []).forEach((t) => teams.set(t.id, t.displayName));
-    const opts = [...teams].sort((a, b) => a[1].localeCompare(b[1]));
-    favEl.innerHTML = `<option value="">★ Pin a team</option>` + opts.map(([id, n]) => `<option value="${id}" ${id === fav ? "selected" : ""}>${esc(n)}</option>`).join("");
   }
 
   async function load() {
@@ -142,13 +151,11 @@
     try {
       const r = await fetch(`${API}?_=${Date.now()}`, { cache: "no-store" });
       if (!r.ok) throw new Error(r.status);
-      const first = !data;
       data = await r.json();
-      if (first || favEl.options.length < 2) fillTeams();
       render();
       $("#updated").textContent = `Updated ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}`;
     } catch (e) {
-      $("#updated").textContent = "Couldn't reach scores — retrying";
+      $("#updated").textContent = "Couldn't reach scores, retrying";
       if (!data) gamesEl.innerHTML = `<div class="empty">Couldn't load scores. Check your connection.</div>`;
     } finally {
       setTimeout(() => $("#refresh").classList.remove("spin"), 600);
@@ -162,18 +169,14 @@
     timer = setTimeout(load, anyLive ? LIVE_MS : IDLE_MS);
   }
 
-  favEl.addEventListener("change", () => { fav = favEl.value; store.setItem("nfl-fav", fav); render(); });
+  pickEl.addEventListener("change", () => {
+    current = pickEl.value; manual = true; store.setItem("nfl-game", current); render();
+  });
   $("#refresh").addEventListener("click", load);
-  document.querySelectorAll(".tab").forEach((b) =>
-    b.addEventListener("click", () => {
-      document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
-      b.classList.add("active"); filter = b.dataset.filter; render();
-    })
-  );
   // Refresh immediately when the app comes back to the foreground
   document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
 
   load();
-  // Offline app shell (unavailable in sandboxed embeds — ignore failures)
+  // Offline app shell (unavailable in sandboxed embeds; ignore failures)
   try { if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {}); } catch {}
 })();

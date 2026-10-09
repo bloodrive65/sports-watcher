@@ -138,8 +138,11 @@ html.embed{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.22) transparen
 html.embed::-webkit-scrollbar{width:8px}
 html.embed::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22);border-radius:8px}
 html.embed::-webkit-scrollbar-track{background:transparent}
-html.embed body{max-width:1180px}
-@media (min-width:900px){
-  html.embed #games{grid-template-columns:repeat(2,minmax(0,1fr))}
-  html.embed #games .empty{grid-column:1/-1}
+
+/* Single-game picker */
+#pick{max-width:290px;min-width:200px;cursor:pointer}
+.others{font-size:13px;color:var(--muted);text-align:center;margin-top:10px;min-height:1em}
+.others:empty{display:none}
+@media (max-width:420px){
+  #pick{max-width:180px;min-width:0;font-size:13px}
 }
