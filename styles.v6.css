@@ -132,3 +132,5 @@ html.embed body{padding-top:8px;padding-bottom:8px}
 html.embed select,html.embed #refresh{background:rgba(255,255,255,.06);color:var(--text)}
 html.embed select option{background:#1a120e;color:#f5f1ee}
 html.no-header .top{display:none}
+html.embed{scrollbar-width:none}
+html.embed::-webkit-scrollbar{display:none}
